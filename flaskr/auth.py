@@ -1,11 +1,30 @@
-from flask import Blueprint, render_template, request, flash
+from flask import Blueprint, render_template, request, flash, redirect, url_for
+from .models import User
+from werkzeug.security import generate_password_hash, check_password_hash
+from . import db
+
 
 auth = Blueprint('auth', __name__)
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
-    data = request.form
-    print(data)
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('pass')
+
+        user = User.query.filter_by(email=email).first()
+        if user:
+            if check_password_hash(user.password, password):
+                flash('Logged In Successfully!', category='success')
+                return redirect(url_for('views.home'))
+            else:
+                flash('Wrong Credentials', category='error')
+        else:
+            flash('Email does not Exist', category='error')
+    
+    return render_template('login.html', boolean=True)
+
+
     return render_template('login.html')
 
 
@@ -22,7 +41,11 @@ def register():
         pass1 = request.form.get('pass1')
         pass2 = request.form.get('pass2')
 
-        if len(email) < 4:
+
+        user = User.query.filter_by(email=email).first()
+        if user:
+            flash('User already exist', category='error')
+        elif len(email) < 4:
             flash("Length of email should be greated than 3", category='error')
         elif len(fullname) < 2:
             flash("length of name should be greater than 1", category='error')
@@ -31,8 +54,11 @@ def register():
         elif pass1 != pass2:
             flash("Password doesn't match", category='error')
         else:
+            new_user = User(email=email, fullname=fullname, password=generate_password_hash(pass1, method='sha256'))
+            db.session.add(new_user)
+            db.session.commit()
             flash("Account Created!!!", category='success')
-
+            return redirect(url_for('views.home'))
 
     return render_template('register.html')
 
